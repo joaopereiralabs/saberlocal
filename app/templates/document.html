@@ -1,0 +1,4 @@
+{% extends 'base.html' %}
+{% block content %}
+<article class="reading"><a href="/">← Voltar à biblioteca</a><div class="eyebrow">{{ doc.category }}</div><h1>{{ doc.title }}</h1><p class="byline">Fonte/autoria: {{ doc.source }} · Referência de data: {{ doc.reviewed }}<br>Licença: {{ doc.license }}</p><div class="bodytext">{{ doc.body }}</div>{% if doc.filename %}<a class="download" href="{{ url_for('file',doc_id=doc.id) }}">Baixar arquivo original ↓</a>{% endif %}</article>
+{% endblock %}

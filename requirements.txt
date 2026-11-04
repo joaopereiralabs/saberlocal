@@ -1,0 +1,4 @@
+# No aparelho, o instalador usa os pacotes Ubuntu python3-flask e gunicorn.
+# Este arquivo serve para desenvolvimento em outros computadores.
+Flask>=3.0,<4
+waitress>=3.0,<4

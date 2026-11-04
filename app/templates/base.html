@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#184c3c">
+  <title>{{ settings.title }} · Biblioteca escolar offline</title>
+  <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/" aria-label="Página inicial"><span class="brandmark">S</span>{{ settings.title }}</a><span class="connection"><span></span> Rede local · sem internet</span></header>
+  <main>{% block content %}{% endblock %}</main>
+  <footer><div><strong>{{ settings.title }}</strong><p>{{ settings.institution }}</p></div><div><a href="/">Início</a> · <a href="/biblioteca/">Biblioteca completa</a><p>Para voltar, acesse http://10.42.0.1</p></div></footer>
+</body>
+</html>

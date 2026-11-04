@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+case ${1:-help} in
+  download|import|seed) exec /usr/bin/python3 /opt/saberlocal/scripts/content.py "$@" ;;
+  status)
+    systemctl --no-pager --full status saberlocal-network saberlocal-hostapd saberlocal-dns saberlocal-web saberlocal-portal saberlocal-kiwix
+    ;;
+  logs) exec journalctl -u 'saberlocal-*' --no-pager -n 100 ;;
+  rollback) exec /usr/bin/python3 /opt/saberlocal/scripts/install.py --rollback ;;
+  *) echo 'Uso: sudo saberlocal {download|import|status|logs|rollback}' ;;
+esac

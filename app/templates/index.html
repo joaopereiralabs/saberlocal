@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="hero">
+  <div class="eyebrow">BIBLIOTECA ESCOLAR · ENSINO FUNDAMENTAL E MÉDIO</div>
+  <h1>{{ settings.subtitle }}</h1>
+  <p>Um lugar para descobrir, estudar e ir além. Explore as coleções e os materiais dos professores, mesmo sem internet.</p>
+  <form class="searchbox" action="/" role="search">
+    <label class="sr-only" for="q">O que você quer aprender?</label>
+    <span aria-hidden="true">⌕</span><input id="q" name="q" type="search" maxlength="200" value="{{ q }}" placeholder="O que você quer aprender?" autocomplete="off">
+    <button type="submit">Pesquisar <span aria-hidden="true">↗</span></button>
+  </form>
+  <div class="suggestions">Explore: <a href="/?q=frações">frações</a><a href="/?q=energia">energia</a><a href="/?q=Brasil">Brasil</a></div>
+</section>
+<div class="sectionhead"><div><div class="eyebrow">ESCOLHA UM CAMINHO</div><h2>{% if q %}Pesquisar por “{{ q }}”{% else %}Um mundo para explorar{% endif %}</h2></div><span>Disponível nesta TV Box</span></div>
+<section class="cards" aria-label="Coleções offline">
+{% for pack in packs %}
+  <article class="card {% if loop.index == 1 %}sage{% else %}sand{% endif %}">
+    <div class="cardtop"><span class="bookicon" aria-hidden="true">{% if pack.id == 'matematica' %}∑{% elif pack.id == 'ciencias' %}⚛{% elif pack.id == 'geografia' %}◎{% elif pack.id == 'historia' %}◷{% else %}▤{% endif %}</span><span class="tag">OFFLINE</span></div>
+    <h3>{{ pack.title }}</h3><p>{{ pack.description }}</p>
+    <div class="meta">{{ pack.source }} · edição {{ pack.date }}</div>
+    {% if q %}<a class="cardlink" href="{{ url_for('search_book',pack_id=pack.id,q=q) }}">Buscar nesta coleção <span>↗</span></a>
+    {% else %}<a class="cardlink" href="{{ url_for('open_book',pack_id=pack.id) }}">Explorar coleção <span>↗</span></a>{% endif %}
+  </article>
+{% else %}
+  <article class="card sage"><h3>A biblioteca está começando</h3><p>Os guias locais já estão disponíveis abaixo. A equipe pode adicionar coleções offline e materiais da comunidade.</p></article>
+{% endfor %}
+</section>
+<section class="localdocs">
+  <div class="sectionhead"><div><div class="eyebrow">DA NOSSA ESCOLA</div><h2>{% if q %}Resultados nos materiais da escola{% else %}Materiais da escola{% endif %}</h2></div></div>
+  <nav class="filters" aria-label="Filtrar materiais"><a {% if not category %}aria-current="page"{% endif %} href="{{ url_for('home',q=q) }}">Todos</a>{% for cat in ['Matemática','Ciências','História','Geografia','Língua portuguesa','Tecnologia','Orientações'] %}<a {% if category == cat %}aria-current="page"{% endif %} href="{{ url_for('home',q=q,category=cat) }}">{{ cat }}</a>{% endfor %}</nav>
+  <div class="doclist">{% for doc in documents %}<a class="docrow" href="{{ url_for('document',doc_id=doc.id) }}"><div><span class="eyebrow">{{ doc.category }}</span><h3>{{ doc.title }}</h3><p>{{ doc.excerpt }}…</p></div><span aria-hidden="true">↗</span></a>{% else %}<div class="empty"><h3>Nenhum material local encontrado.</h3><p>Tente outras palavras{% if packs %} ou use os botões de busca das coleções acima{% endif %}. A pesquisa consulta apenas o conteúdo armazenado aqui.</p></div>{% endfor %}</div>
+</section>
+<aside class="notice"><strong>Uma biblioteca que cresce com a escola.</strong><p>Professores podem acrescentar apostilas, atividades e leituras. Os materiais da escola aparecem nesta página; as coleções têm sua própria pesquisa de artigos.</p></aside>
+{% endblock %}

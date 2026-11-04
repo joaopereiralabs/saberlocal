@@ -1,0 +1,47 @@
+[
+  {
+    "id": "matematica",
+    "title": "Matemática",
+    "description": "Artigos em português sobre números, geometria, álgebra e outros temas de matemática.",
+    "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_pt_mathematics_maxi_2026-10.zim",
+    "sha256": "05f363e095e29bab18c80f12be10253ec9adab846b4696347e0f9b3aa2c39660",
+    "source": "Wikipédia / Kiwix",
+    "date": "2026-10"
+  },
+  {
+    "id": "ciencias",
+    "title": "Ciências e física",
+    "description": "Uma coleção para explorar energia, movimento, matéria e fenômenos físicos.",
+    "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_pt_physics_maxi_2026-10.zim",
+    "sha256": "1bc7b45cf323c875afd7722452ed81471655afeb7b7421ad8480e1b4c08536f7",
+    "source": "Wikipédia / Kiwix",
+    "date": "2026-10"
+  },
+  {
+    "id": "geografia",
+    "title": "Geografia",
+    "description": "Mapas, lugares, territórios e conceitos para estudar o mundo.",
+    "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_pt_geography_maxi_2026-10.zim",
+    "sha256": "788c5c038ef9143108b43388db0e17963d740a1898bf728d9762aa3298efacaa",
+    "source": "Wikipédia / Kiwix",
+    "date": "2026-10"
+  },
+  {
+    "id": "historia",
+    "title": "História",
+    "description": "Artigos para pesquisar acontecimentos, sociedades e períodos históricos.",
+    "url": "https://download.kiwix.org/zim/wikipedia/wikipedia_pt_history_maxi_2026-10.zim",
+    "sha256": "c6c88af7bbf9bda5ecda84cd6793e3390f116fe8a06d960cc44d1f40340a2233",
+    "source": "Wikipédia / Kiwix",
+    "date": "2026-10"
+  },
+  {
+    "id": "livros",
+    "title": "Livros para aprender",
+    "description": "Livros colaborativos em português sobre diversas áreas do conhecimento.",
+    "url": "https://download.kiwix.org/zim/wikibooks/wikibooks_pt_all_maxi_2026-10.zim",
+    "sha256": "593c562922149d05ba8b08a42265c66ea647f2b507f6ff3f1366923b8947c731",
+    "source": "Wikilivros / Kiwix",
+    "date": "2026-10"
+  }
+]
