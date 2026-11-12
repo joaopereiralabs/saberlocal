@@ -10,7 +10,7 @@ from unittest.mock import patch
 from scripts.configuration import render, validate, openrc, systemd
 from scripts.system import detect, package_commands
 from scripts.storage import edit_fstab, require, file_limit, FAT_LIMIT
-from scripts.install import discover_interface, disable_interface_stanza
+from scripts.install import discover_interface, disable_interface_stanza, project_checkout
 from scripts.display import show, text_for
 from scripts.content import download
 from scripts.files import managed_write, restore, check_conflicts
@@ -96,6 +96,13 @@ class BackendTests(unittest.TestCase):
                 raise RuntimeError('managed only')
         check.side_effect = check_interface
         self.assertEqual(discover_interface(), 'wlan1')
+
+    @patch('scripts.install.run')
+    def test_migration_checks_origin_before_adopting_other_checkout(self, run):
+        run.return_value.stdout = 'https://github.com/joaopereiralabs/saberlocal.git\n'
+        self.assertTrue(project_checkout('/a-different-checkout'))
+        run.return_value.stdout = 'https://github.com/someone/unrelated.git\n'
+        self.assertFalse(project_checkout('/a-different-checkout'))
 
 
 class StorageTests(unittest.TestCase):

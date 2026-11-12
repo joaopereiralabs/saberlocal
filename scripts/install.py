@@ -199,6 +199,17 @@ def detach_radio(config):
         run('networkctl', 'reconfigure', interface, check=False)
 
 
+def project_checkout(path):
+    path = Path(path).resolve()
+    if path == ROOT:
+        return True
+    origin = run('git', '-C', path, '-c', 'safe.directory=' + str(path),
+                 'config', '--get', 'remote.origin.url', check=False).stdout.strip().rstrip('/')
+    return origin in ('https://github.com/joaopereiralabs/saberlocal.git',
+                      'https://github.com/joaopereiralabs/saberlocal',
+                      'git@github.com:joaopereiralabs/saberlocal.git')
+
+
 def running_manual(config):
     """Reconhece apenas os comandos manuais documentados, sem pkill genérico."""
     processes = []
@@ -215,9 +226,9 @@ def running_manual(config):
                     fields = dict(l.split('=', 1) for l in contents.splitlines() if '=' in l and not l.startswith('#'))
                     recognized = fields.get('interface') == config['interface']
                     if program == 'hostapd':
-                        recognized = recognized and fields.get('ssid') == config['ssid']
+                        recognized = recognized and fields.get('ssid') in (config['ssid'], 'SABERLOCAL')
             if 'python' in name and any(a.endswith('scripts/dev.py') for a in args):
-                recognized = (proc / 'cwd').resolve() == ROOT
+                recognized = project_checkout((proc / 'cwd').resolve())
             if recognized:
                 processes.append((int(proc.name), (proc / 'stat').read_text().split()[21]))
         except (OSError, ValueError, UnicodeError):

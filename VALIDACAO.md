@@ -5,7 +5,7 @@ Testes em um PC não validam o driver Wi-Fi da TX9.
 
 ## Verificações executadas no desenvolvimento
 
-- 41 testes automatizados locais: backends Alpine/OpenRC e Ubuntu/systemd,
+- 42 testes automatizados locais: backends Alpine/OpenRC e Ubuntu/systemd,
   renderização de serviços, proteção por UUID, limites FAT32, adaptadores do visor,
   portal, busca FTS sem acentos, filtro por disciplina,
   importação de texto, download do original, escape de HTML, geração de links
@@ -22,7 +22,7 @@ Testes em um PC não validam o driver Wi-Fi da TX9.
 
 ### Integração Linux executada
 
-[Execução aprovada no GitHub Actions](https://github.com/joaopereiralabs/saberlocal/actions/runs/43327084071):
+[Execução aprovada no GitHub Actions](https://github.com/joaopereiralabs/saberlocal/actions/runs/43327910523):
 
 - Alpine **3.24.4 aarch64** e x86_64 em contêineres: pacotes reais de Kiwix,
   nginx, dnsmasq, Avahi, Flask e Waitress; configurações aceitas; HTTP na porta 80
@@ -30,6 +30,8 @@ Testes em um PC não validam o driver Wi-Fi da TX9.
   após encerrar o processo filho.
 - Ubuntu 24.04 x86_64 em contêiner: mesmas verificações de software/HTTP/DNS,
   mais `systemd-analyze verify` das units. O boot real por systemd não foi simulado.
+- Importação de um PDF real via Poppler, com texto pesquisável e limites de
+  memória/arquivo no subprocesso, nas três integrações Linux.
 
 Esses testes usam rede isolada e uma interface `dummy`, sem rádio, DHCP de um
 celular ou cartão físico. Alpine 3.24.2 foi informado pela equipe; a imagem de CI

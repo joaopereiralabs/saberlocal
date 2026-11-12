@@ -16,17 +16,14 @@ Com o Alpine persistente preparado, o cartão inserido e internet por **Ethernet
 ```sh
 sudo apk update
 sudo apk add git bash
-git clone https://github.com/joaopereiralabs/saberlocal.git
+git clone --branch feat/alpine-openrc-tx9 https://github.com/joaopereiralabs/saberlocal.git
 cd saberlocal
 sudo bash install.sh
 ```
 
-Enquanto esta alteração estiver em pull request, use o ramo de teste depois do clone:
-
-```sh
-git switch feat/alpine-openrc-tx9
-sudo bash install.sh
-```
+O comando acima seleciona o ramo desta versão enquanto ela estiver em pull request.
+Depois de incorporada à `main`, o clone normal sem `--branch` terá o mesmo instalador.
+Use um checkout limpo; não descarte alterações locais da instalação manual para trocar de ramo.
 
 O instalador detecta a distribuição, versão, arquitetura, OpenRC ativo e rádio
 com modo AP; instala os pacotes; prepara um ambiente virtual; identifica e monta
@@ -241,7 +238,7 @@ provisório `SaberLocal2026` é substituído por senha individual.
 
 Processos manuais são migrados automaticamente **somente** se corresponderem aos
 comandos conhecidos (`hostapd /tmp/hostapd.conf`, `dnsmasq --conf-file=/tmp/dnsmasq.conf`
-com interface/SSID correspondentes e `scripts/dev.py` neste checkout). Não se usa
+com interface/SSID correspondentes e `scripts/dev.py` em um checkout do repositório oficial). Não se usa
 `pkill` genérico. Portas ocupadas por serviços externos são recusadas, preservando-os.
 Processos manuais antigos não são ressuscitados pelo rollback.
 
