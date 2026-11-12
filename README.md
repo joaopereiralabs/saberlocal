@@ -16,14 +16,13 @@ Com o Alpine persistente preparado, o cartão inserido e internet por **Ethernet
 ```sh
 sudo apk update
 sudo apk add git bash
-git clone --branch feat/alpine-openrc-tx9 https://github.com/joaopereiralabs/saberlocal.git
+git clone https://github.com/joaopereiralabs/saberlocal.git
 cd saberlocal
 sudo bash install.sh
 ```
 
-O comando acima seleciona o ramo desta versão enquanto ela estiver em pull request.
-Depois de incorporada à `main`, o clone normal sem `--branch` terá o mesmo instalador.
-Use um checkout limpo; não descarte alterações locais da instalação manual para trocar de ramo.
+Use um checkout limpo; não descarte alterações locais da instalação manual.
+Para uma cópia fixada na versão publicada, use `git clone --branch v2.0.0 https://github.com/joaopereiralabs/saberlocal.git`.
 
 O instalador detecta a distribuição, versão, arquitetura, OpenRC ativo e rádio
 com modo AP; instala os pacotes; prepara um ambiente virtual; identifica e monta
