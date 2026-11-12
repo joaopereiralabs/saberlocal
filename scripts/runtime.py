@@ -25,6 +25,12 @@ def directories():
     log.mkdir(parents=True, exist_ok=True)
     log.chmod(0o750)
     os.chown(log, 0, account.pw_gid)
+    from scripts.system import SERVICES
+    for name in SERVICES:
+        path = log / (name + '.log')
+        path.touch(exist_ok=True)
+        path.chmod(0o640)
+        os.chown(path, account.pw_uid if name in ('portal', 'kiwix') else 0, account.pw_gid)
 
 
 def network(config):

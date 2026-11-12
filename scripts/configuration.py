@@ -209,6 +209,7 @@ retry="TERM/10/KILL/5"
 start_pre() {{
     checkpath -d -m 0755 -o saberlocal:saberlocal /run/saberlocal
     checkpath -d -m 0750 -o root:saberlocal /var/log/saberlocal
+    checkpath -f -m 0640 -o {user}:saberlocal /var/log/saberlocal/{name}.log
 {guard}}}
 '''
 
