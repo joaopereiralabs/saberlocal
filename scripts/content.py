@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 import uuid
@@ -130,9 +131,26 @@ def import_document(data, args, config=None):
     if source.stat().st_size > 100 * 1024**2:
         raise ValueError('Limite por arquivo: 100 MiB.')
     if source.suffix.lower() == '.pdf':
-        result = subprocess.run(['pdftotext', '-enc', 'UTF-8', str(source), '-'],
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90, check=True)
-        body = result.stdout.decode('utf-8')
+        # Extrai em arquivo no cartão, com limites no filho; não acumula saída
+        # arbitrariamente grande na RAM de uma TX9 de 1 GB.
+        def limits():
+            import resource
+            resource.setrlimit(resource.RLIMIT_AS, (256 * 1024**2, 256 * 1024**2))
+            resource.setrlimit(resource.RLIMIT_FSIZE, (5 * 1024**2 + 1, 5 * 1024**2 + 1))
+        require(config)
+        temp = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=data, suffix='.text.tmp', delete=False) as stream:
+                temp = Path(stream.name)
+                subprocess.run(['pdftotext', '-enc', 'UTF-8', str(source), '-'],
+                               stdout=stream, stderr=subprocess.PIPE, timeout=90, check=True,
+                               preexec_fn=limits if os.name == 'posix' else None)
+            if temp.stat().st_size > 5 * 1024**2:
+                raise ValueError('Texto extraído excede 5 MiB; divida o documento.')
+            body = temp.read_text(encoding='utf-8')
+        finally:
+            if temp is not None:
+                temp.unlink(missing_ok=True)
     else:
         body = source.read_text(encoding='utf-8')
     if not body.strip():

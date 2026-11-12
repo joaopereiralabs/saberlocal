@@ -13,6 +13,7 @@ from scripts.storage import edit_fstab, require, file_limit, FAT_LIMIT
 from scripts.install import discover_interface, disable_interface_stanza
 from scripts.display import show, text_for
 from scripts.content import download
+from scripts.files import managed_write, restore, check_conflicts
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -180,6 +181,33 @@ class DisplayTests(unittest.TestCase):
         cfg.update(display_backend='sysfs', display_path='/dev/mem')
         with self.assertRaises(ValueError):
             show('ready', cfg)
+
+
+class RecoveryTests(unittest.TestCase):
+    def test_reinstall_and_rollback_preserve_original_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            original = root / 'interfaces'
+            original.write_text('eth0: original\n')
+            with patch('scripts.files.STATE', root / 'state'):
+                managed_write(original, 'eth0: unchanged\nwlan0: project')
+                managed_write(original, 'eth0: unchanged\nwlan0: project')
+                check_conflicts()
+                restore()
+            self.assertEqual(original.read_text(), 'eth0: original\n')
+
+    def test_rollback_does_not_overwrite_later_operator_changes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            target = root / 'config'
+            with patch('scripts.files.STATE', root / 'state'):
+                managed_write(target, 'installed')
+                target.write_text('operator edit')
+                with self.assertRaises(RuntimeError):
+                    check_conflicts()
+                with self.assertRaises(RuntimeError):
+                    restore()
+            self.assertEqual(target.read_text(), 'operator edit')
 
 
 if __name__ == '__main__':

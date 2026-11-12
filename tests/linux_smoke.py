@@ -105,7 +105,8 @@ def main():
         # Exercita de verdade o init script e uma recuperação de queda do filho.
         Path('/run/openrc').mkdir(exist_ok=True)
         Path('/run/openrc/softlevel').touch()
-        run('rc-service', '--nodeps', 'saberlocal-portal', 'start')
+        start_result = run('rc-service', '--nodeps', 'saberlocal-portal', 'start')
+        print(start_result.stdout, start_result.stderr, flush=True)
         def portal_pid():
             for path in Path('/proc').glob('[0-9]*/cmdline'):
                 try:
@@ -116,9 +117,23 @@ def main():
                     pass
             return None
         try:
-            time.sleep(1)
+            deadline = time.monotonic() + 10
             old = portal_pid()
-            assert old, 'OpenRC não iniciou o WSGI'
+            while old is None and time.monotonic() < deadline:
+                time.sleep(0.3)
+                old = portal_pid()
+            if not old:
+                log = Path('/var/log/saberlocal/portal.log')
+                print(log.read_text()[-4000:] if log.exists() else 'Sem log do portal', flush=True)
+                print(run('rc-service', 'saberlocal-portal', 'status', check=False), flush=True)
+                for cmdline in Path('/proc').glob('[0-9]*/cmdline'):
+                    try:
+                        raw = cmdline.read_bytes().replace(b'\0', b' ')
+                        if b'/opt/saberlocal' in raw:
+                            print(raw.decode(), flush=True)
+                    except OSError:
+                        pass
+                raise AssertionError('OpenRC não iniciou o WSGI')
             os.kill(old, signal.SIGTERM)
             deadline = time.monotonic() + 15
             while time.monotonic() < deadline:

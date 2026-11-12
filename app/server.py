@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 import urllib.parse
 from pathlib import Path
 
@@ -111,5 +112,10 @@ def create_app(config=None):
     @app.errorhandler(404)
     def captive(_error):
         return redirect('http://10.42.0.1/', code=302)
+
+    @app.errorhandler(sqlite3.DatabaseError)
+    def catalog_error(_error):
+        app.logger.error('Catálogo SQLite indisponível; verifique o cartão e a integridade do banco.')
+        return render_template('catalog-error.html'), 503
 
     return app
