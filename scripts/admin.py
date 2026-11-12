@@ -20,6 +20,13 @@ from scripts.files import restore, write, managed_write
 
 def report(config, reveal_password=False):
     statuses = {name: active(config, name) for name in SERVICES}
+    if statuses['portal'] and statuses['web']:
+        import urllib.request
+        try:
+            with urllib.request.urlopen('http://10.42.0.1/healthz', timeout=3) as response:
+                statuses['portal'] = json.load(response).get('portal') == 'ok'
+        except (OSError, ValueError):
+            statuses['portal'] = False
     try:
         mounted = storage.require(config)
         disk = shutil.disk_usage(config['data_dir'])
@@ -29,8 +36,12 @@ def report(config, reveal_password=False):
         storage_state = 'INDISPONÍVEL · ' + str(error)
     zims = list((Path(config['data_dir']) / 'zim').glob('*.zim')) if mounted else []
     display_path = Path('/run/saberlocal/display.json')
-    display = json.loads(display_path.read_text()) if display_path.exists() else {
-        'state': 'unsupported' if config.get('display_backend', 'none') == 'none' else 'não iniciado'}
+    display = {'state': 'unsupported' if config.get('display_backend', 'none') == 'none' else 'não iniciado'}
+    if config.get('display_backend', 'none') != 'none' and display_path.exists():
+        try:
+            display = json.loads(display_path.read_text())
+        except (OSError, ValueError):
+            display = {'state': 'erro de leitura do estado'}
     enabled = []
     expected = [n for n in SERVICES if n not in ('kiwix', 'display')]
     if config['backend'] == 'openrc':

@@ -110,7 +110,7 @@ def main():
             for path in Path('/proc').glob('[0-9]*/cmdline'):
                 try:
                     args = path.read_bytes().split(b'\0')
-                    if str(APP / 'scripts/production.py').encode() in args:
+                    if args and b'python' in Path(os.fsdecode(args[0])).name.encode() and str(APP / 'scripts/production.py').encode() in args:
                         return int(path.parent.name)
                 except OSError:
                     pass
@@ -127,6 +127,9 @@ def main():
                     break
                 time.sleep(0.3)
             else:
+                log = Path('/var/log/saberlocal/portal.log')
+                print(log.read_text()[-4000:] if log.exists() else 'Sem log do portal', flush=True)
+                print(run('rc-service', 'saberlocal-portal', 'status', check=False), flush=True)
                 raise AssertionError('OpenRC não recuperou o processo encerrado')
             run('rc-service', 'saberlocal-portal', 'status')
         finally:

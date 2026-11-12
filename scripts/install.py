@@ -170,6 +170,8 @@ def detach_radio(config):
         old = path.read_text()
         new = disable_interface_stanza(old, interface)
         if new != old:
+            if shutil.which('ifdown'):
+                run('ifdown', interface, check=False)
             managed_write(path, new)
     # Também trata arquivos incluídos do ifupdown sem alterar Ethernet.
     for path in Path('/etc/network/interfaces.d').glob('*'):
@@ -177,6 +179,8 @@ def detach_radio(config):
             old = path.read_text()
             new = disable_interface_stanza(old, interface)
             if new != old:
+                if shutil.which('ifdown'):
+                    run('ifdown', interface, check=False)
                 managed_write(path, new)
     if shutil.which('nmcli'):
         if not (STATE / 'nm-managed.json').exists():
