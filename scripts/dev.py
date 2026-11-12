@@ -17,6 +17,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     config = json.loads((ROOT / 'config.example.json').read_text(encoding='utf-8'))
     config['data_dir'] = str(Path(args.data_dir).resolve())
+    # A demonstração não monta nem exige o microSD de produção.
+    config.pop('data_mount', None)
+    config.pop('storage_uuid', None)
     seed(config['data_dir'])
     from waitress import serve
     print(f'Prévia local: http://127.0.0.1:{args.port}', flush=True)

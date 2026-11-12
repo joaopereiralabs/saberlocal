@@ -24,6 +24,8 @@ class PortalTests(unittest.TestCase):
         seed(self.data)
         self.config = json.loads((ROOT / 'config.example.json').read_text(encoding='utf-8'))
         self.config['data_dir'] = str(self.data)
+        self.config.pop('data_mount', None)
+        self.config.pop('storage_uuid', None)
         self.client = create_app(self.config).test_client()
 
     def test_home_is_school_portal_and_works_without_books(self):

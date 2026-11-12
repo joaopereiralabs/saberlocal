@@ -6,8 +6,10 @@ from pathlib import Path
 
 
 @contextmanager
-def connect(data_dir):
-    db = sqlite3.connect(Path(data_dir) / 'catalog.sqlite', timeout=10)
+def connect(data_dir, readonly=False):
+    path = (Path(data_dir) / 'catalog.sqlite').resolve()
+    db = sqlite3.connect(path.as_uri() + '?mode=ro' if readonly else str(path),
+                         uri=readonly, timeout=10)
     db.row_factory = sqlite3.Row
     db.execute('PRAGMA busy_timeout=10000')
     try:
@@ -39,7 +41,7 @@ def add_document(data_dir, item):
 
 
 def query(data_dir, text='', category=''):
-    with connect(data_dir) as db:
+    with connect(data_dir, readonly=True) as db:
         tokens = re.findall(r'[^\W_]+', text[:200], re.UNICODE)[:12]
         args = []
         if tokens:

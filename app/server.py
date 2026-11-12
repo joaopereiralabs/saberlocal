@@ -17,6 +17,14 @@ def create_app(config=None):
     app.config['SABERLOCAL'] = config
     data = Path(config['data_dir'])
 
+    @app.before_request
+    def storage_guard():
+        from scripts.storage import require
+        try:
+            require(config)
+        except (RuntimeError, OSError):
+            return render_template('storage.html'), 503
+
     @app.context_processor
     def context():
         return {'settings': config}
@@ -47,7 +55,7 @@ def create_app(config=None):
 
     @app.get('/documento/<doc_id>')
     def document(doc_id):
-        with connect(data) as db:
+        with connect(data, readonly=True) as db:
             item = db.execute('SELECT * FROM documents WHERE id=?', (doc_id,)).fetchone()
         if item is None:
             abort(404)
@@ -55,7 +63,7 @@ def create_app(config=None):
 
     @app.get('/arquivo/<doc_id>')
     def file(doc_id):
-        with connect(data) as db:
+        with connect(data, readonly=True) as db:
             item = db.execute('SELECT filename FROM documents WHERE id=?', (doc_id,)).fetchone()
         if item is None or not item['filename']:
             abort(404)
@@ -96,7 +104,7 @@ def create_app(config=None):
 
     @app.get('/healthz')
     def health():
-        with connect(data) as db:
+        with connect(data, readonly=True) as db:
             db.execute('SELECT COUNT(*) FROM documents').fetchone()
         return {'portal': 'ok', 'packs': len(packs())}
 
