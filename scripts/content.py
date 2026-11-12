@@ -141,6 +141,7 @@ def import_document(data, args, config=None):
         raise ValueError('Texto extraído excede 5 MiB; divida o documento.')
     doc_id = uuid.uuid4().hex
     folder = Path(data) / 'documents'
+    require(config)
     folder.mkdir(parents=True, exist_ok=True)
     filename = doc_id + source.suffix.lower()
     if shutil.disk_usage(folder).free < source.stat().st_size + 64 * 1024**2:

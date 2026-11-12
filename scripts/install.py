@@ -338,7 +338,10 @@ def main():
     if (ETC / 'private.json').exists():
         config.update(json.loads((ETC / 'private.json').read_text()))
     if args.config:
-        config.update(json.loads(Path(args.config).read_text()))
+        overrides = json.loads(Path(args.config).read_text())
+        if not overrides.get('password'):
+            overrides.pop('password', None)
+        config.update(overrides)
     config.update(system)
     if not config.get('password') or config['password'] == 'SaberLocal2026':
         config['password'] = secrets.token_urlsafe(12)

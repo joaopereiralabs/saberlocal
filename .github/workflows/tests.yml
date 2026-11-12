@@ -35,7 +35,7 @@ jobs:
           TEST_IMAGE: ${{ matrix.image }}
           TEST_DISTRO: ${{ matrix.distro }}
         run: |
-          docker run --rm -e SABERLOCAL_CI=1 -e TEST_DISTRO -v "$PWD:/src" -w /src "$TEST_IMAGE" sh -ec '
+          docker run --rm --cap-add NET_ADMIN -e SABERLOCAL_CI=1 -e TEST_DISTRO -v "$PWD:/src" -w /src "$TEST_IMAGE" sh -ec '
             if [ "$TEST_DISTRO" = alpine ]; then
               apk add --no-cache python3 py3-flask py3-waitress openrc bash nginx hostapd dnsmasq kiwix-tools avahi nftables iproute2 util-linux findmnt lsblk blkid poppler-utils git logrotate
             else

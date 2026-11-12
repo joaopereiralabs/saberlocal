@@ -3,6 +3,8 @@ import json
 import os
 import shutil
 import signal
+import socket
+import struct
 import subprocess
 import sys
 import time
@@ -41,6 +43,10 @@ def main():
         write(name, text, mode)
     write('/etc/saberlocal/config.json', json.dumps(config))
     write('/etc/saberlocal/private.json', json.dumps(config), 0o600)
+    # Interface Ethernet fictícia no namespace do contêiner. Não é um teste de rádio.
+    run('ip', 'link', 'add', 'wlan0', 'type', 'dummy')
+    run('ip', 'link', 'set', 'wlan0', 'up')
+    run('ip', 'addr', 'add', '10.42.0.1/24', 'dev', 'wlan0')
     run('dnsmasq', '--test', '--conf-file=/etc/saberlocal/dnsmasq.conf')
     run('nginx', '-t', '-c', '/etc/saberlocal/nginx.conf')
     run('kiwix-serve', '--version')
@@ -54,6 +60,7 @@ def main():
     proc = subprocess.Popen(['su', '-s', '/bin/sh', 'saberlocal', '-c',
                    str(APP / '.venv/bin/python') + ' ' + str(APP / 'scripts/production.py')],
                    start_new_session=True)
+    children = []
     try:
         deadline = time.monotonic() + 15
         while True:
@@ -67,7 +74,31 @@ def main():
                 time.sleep(0.2)
         with urllib.request.urlopen('http://127.0.0.1:8090/?q=denominador') as response:
             assert 'Frações' in response.read().decode()
+        for cmd in [
+            ['dnsmasq', '--keep-in-foreground', '--conf-file=/etc/saberlocal/dnsmasq.conf', '--pid-file='],
+            ['avahi-daemon', '--no-chroot', '--file=/etc/saberlocal/avahi.conf'],
+            ['nginx', '-c', '/etc/saberlocal/nginx.conf', '-g', 'daemon off;']]:
+            child = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
+            children.append(child)
+        time.sleep(1)
+        for child in children:
+            if child.poll() is not None:
+                raise RuntimeError(child.communicate()[0].decode())
+        with urllib.request.urlopen('http://10.42.0.1/healthz', timeout=3) as response:
+            assert json.load(response)['portal'] == 'ok'
+        # Consulta DNS A sem dependência de resolver público.
+        question = b'\x05saber\x05local\x00' + struct.pack('!HH', 1, 1)
+        packet = struct.pack('!HHHHHH', 123, 0x100, 1, 0, 0, 0) + question
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.settimeout(3)
+            sock.sendto(packet, ('10.42.0.1', 53))
+            answer = sock.recv(4096)
+        assert answer[:2] == packet[:2] and socket.inet_aton('10.42.0.1') in answer
     finally:
+        for child in reversed(children):
+            if child.poll() is None:
+                os.killpg(child.pid, signal.SIGTERM)
+            child.communicate(timeout=10)
         os.killpg(proc.pid, signal.SIGTERM)
         proc.wait(timeout=10)
     if system['backend'] == 'openrc':
