@@ -8,5 +8,9 @@
   "country": "BR",
   "channel": 6,
   "data_dir": "",
-  "max_content_gib": 20
+  "max_content_gib": 20,
+  "data_mount": "/mnt/saberlocal",
+  "storage_uuid": "21B5-12FD",
+  "display_backend": "none",
+  "display_width": 4
 }

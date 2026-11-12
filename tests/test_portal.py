@@ -24,6 +24,8 @@ class PortalTests(unittest.TestCase):
         seed(self.data)
         self.config = json.loads((ROOT / 'config.example.json').read_text(encoding='utf-8'))
         self.config['data_dir'] = str(self.data)
+        self.config.pop('data_mount', None)
+        self.config.pop('storage_uuid', None)
         self.client = create_app(self.config).test_client()
 
     def test_home_is_school_portal_and_works_without_books(self):
@@ -100,6 +102,14 @@ class PortalTests(unittest.TestCase):
     def test_missing_book_is_not_advertised(self):
         (self.data / 'installed-packs.json').write_text(json.dumps([{'filename':'missing.zim'}]))
         self.assertEqual(self.client.get('/healthz').json['packs'], 0)
+
+    @patch('scripts.storage.require', side_effect=RuntimeError('cartão ausente'))
+    def test_missing_card_returns_friendly_503_without_opening_catalog(self, guard):
+        with patch('app.server.connect') as connect:
+            response = self.client.get('/healthz')
+            self.assertEqual(response.status_code, 503)
+            self.assertIn('aguardando o cartão', response.get_data(as_text=True))
+            connect.assert_not_called()
 
 
 class FakeResponse(io.BytesIO):

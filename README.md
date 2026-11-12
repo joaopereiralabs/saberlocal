@@ -1,300 +1,297 @@
-# SABERLOCAL — biblioteca escolar offline
+# SABERLOCAL 2.0 — escola offline na TV Box TX9
 
-Uma TV Box TX9 com Ubuntu/Armbian vira um ponto de acesso Wi-Fi com uma biblioteca
-para **ensino fundamental e médio**. O aluno conecta, abre o portal e pesquisa
-conteúdos guardados no cartão, sem depender da internet.
+Biblioteca para **ensino fundamental e médio**, acessível pelo Wi-Fi da TV Box,
+sem internet durante o uso. O mesmo instalador seleciona **Alpine/OpenRC** ou
+**Ubuntu/Debian/systemd**. Não exige Docker, interface gráfica ou IA.
 
-**Estado:** implementação inicial. Portal e rotinas têm testes automatizados;
-instalação completa, driver SSV6051, alcance Wi-Fi e carga precisam ser validados
-na TX9 do projeto antes de levar às escolas.
+Esta versão automatiza a instalação e os serviços. A configuração manual de
+hotspot + DHCP + portal no Alpine foi comprovada pela equipe do projeto. Isso
+não comprova cold boot, o acervo completo, o visor ou atendimento a uma turma.
+Essas verificações estão em [VALIDACAO.md](VALIDACAO.md).
 
-## O que vem pronto
+## Instalação no Alpine
 
-- Portal em português, adaptado a celulares, sem fontes, scripts ou serviços externos.
-- Pesquisa nos materiais da escola com SQLite FTS5, inclusive sem acentos.
-- Coleções em português de matemática, física, história, geografia e Wikilivros.
-- Busca dentro de cada coleção pelo Kiwix. A busca de apostilas e a de artigos
-  aparecem como ações distintas na interface; não há índice unificado entre elas.
-- Importação de apostilas e atividades PDF, TXT e Markdown pelo responsável.
-- Wi-Fi WPA2, DNS e DHCP locais, auxílio à abertura automática da página e início no boot.
-- Verificação SHA-256, retomada de downloads e limite de armazenamento.
-- Comandos para diagnóstico e remoção das configurações de rede do projeto.
+Com o Alpine persistente preparado, o cartão inserido e internet por **Ethernet**:
 
-Não há chatbot ou modelo de IA: a pesquisa consulta o acervo instalado.
-As coleções públicas não são uma sequência didática nem garantem alinhamento à BNCC.
-A equipe pedagógica seleciona os artigos apropriados a cada turma. Português,
-biologia e outras disciplinas podem receber materiais dos professores e livros do acervo.
-
-## Equipamento e preparação
-
-- TX9 já iniciando Ubuntu/Armbian, com `systemd` e acesso `sudo`.
-- 1 GB de RAM; 8 GB internos para o sistema e cartão de 32 GB para o acervo.
-- Internet **durante a instalação**, preferencialmente por Ethernet.
-- Rádio Wi-Fi com driver funcionando e **modo AP** habilitado.
-- Cartão com sistema de arquivos Linux (ext4 recomendado), montado de modo persistente.
-
-O projeto do professor documenta hardware, DTB e driver:
-[rbeninca/tvbox](https://github.com/rbeninca/tvbox).
-O [guia de hotspot](https://github.com/rbeninca/tvbox/tree/main/hotspot) registra
-que o SSV6051 pode precisar de patches para AP. O instalador verifica o anúncio
-de suporte pelo `iw`; o sucesso real só pode ser confirmado criando a rede no aparelho.
-Ele não altera kernel, DTB, bootloader ou driver. Uma alternativa é um adaptador
-Wi-Fi USB cujo driver Linux suporte AP.
-
-Faça a instalação por cabo Ethernet ou console: o rádio selecionado passará a
-ser o ponto de acesso e deixará de funcionar como cliente do Wi-Fi anterior.
-Não se usa o mesmo rádio simultaneamente para baixar da internet e atender os alunos.
-
-### Montar o cartão uma vez
-
-Se a escola já tem o cartão montado, use seu caminho em `--data-dir`.
-Para identificar as partições existentes:
-
-```bash
-lsblk -f
-```
-
-Use o UUID da **partição de dados do cartão**, conferido nesse resultado.
-Os comandos abaixo **não formatam** o cartão. Substitua `SEU_UUID` pelo valor real:
-
-```bash
-sudo mkdir -p /mnt/saberlocal
-sudo mount /dev/disk/by-uuid/SEU_UUID /mnt/saberlocal
-```
-
-Para montar no boot, acrescente ao `/etc/fstab`, sem remover as linhas existentes:
-
-```fstab
-UUID=SEU_UUID /mnt/saberlocal ext4 defaults,nofail,x-systemd.device-timeout=10s 0 2
-```
-
-Essa linha pressupõe uma partição ext4 existente. Confira o tipo com `lsblk -f`.
-Valide a configuração com `sudo findmnt --verify` e `findmnt /mnt/saberlocal`.
-Caso o cartão ainda precise ser particionado/formatado, prepare-o com o responsável
-do laboratório antes de instalar: este projeto não apaga discos automaticamente.
-
-## Instalar com um comando
-
-Baixe e extraia este repositório na TV Box. Entre na pasta `saberlocal` e execute:
-
-```bash
-sudo bash install.sh
-```
-
-Ou, com Git já instalado:
-
-```bash
+```sh
+sudo apk update
+sudo apk add git bash
 git clone https://github.com/joaopereiralabs/saberlocal.git
 cd saberlocal
 sudo bash install.sh
 ```
 
-O padrão é `/mnt/saberlocal/acervo`. Com apenas um rádio, ele é identificado
-automaticamente. Para selecionar caminhos e rádio explicitamente:
+Use um checkout limpo; não descarte alterações locais da instalação manual.
+Para uma cópia fixada na versão publicada, use `git clone --branch v2.0.0 https://github.com/joaopereiralabs/saberlocal.git`.
 
-```bash
-sudo bash install.sh --interface wlan0 --data-dir /mnt/saberlocal/acervo
+O instalador detecta a distribuição, versão, arquitetura, OpenRC ativo e rádio
+com modo AP; instala os pacotes; prepara um ambiente virtual; identifica e monta
+o microSD; baixa/verifica o acervo; configura rede e serviços; habilita o início
+automático e verifica o portal. Não é necessário editar IPs ou arquivos de serviço.
+
+O rádio será dedicado ao projeto. Instale por Ethernet ou console, não por uma
+conexão SSH que dependa desse mesmo rádio. A Ethernet não é reconfigurada.
+
+### Valores da TX9 deste projeto
+
+| Item | Configuração |
+|---|---|
+| Sistema informado pela equipe | Alpine Linux 3.24.2, aarch64 |
+| Serviços | OpenRC, confirmado no momento da instalação |
+| RAM / armazenamento interno | aproximadamente 1 GB / 7,3 GiB |
+| Dados | microSD de aproximadamente 29,73 GiB, FAT32 |
+| UUID padrão | `21B5-12FD` |
+| Montagem / acervo | `/mnt/saberlocal` / `/mnt/saberlocal/acervo` |
+| Rádio preferido | `wlan0`, somente se anunciar AP |
+| SSID | `SABERLOCAL` |
+| Senha | individual, gerada e preservada nas reinstalações |
+| Endereços | **http://saber.local** e **http://10.42.0.1** |
+
+O nome `/dev/mmcblk0p1` não é usado como identidade. O instalador verifica UUID
+único, tipo de dispositivo, formato, tamanho e se a partição corresponde à raiz.
+Em outro aparelho/cartão, informe o UUID real:
+
+```sh
+lsblk -f
+sudo bash install.sh --storage-uuid OUTRO-UUID
 ```
 
-O instalador baixa pacotes Ubuntu e aproximadamente **1,18 GiB** de livros
-(edições de outubro de 2026). A transferência completa ocupa esse espaço no cartão;
-os ZIM são lidos compactados, sem extração. Há limite padrão de 20 GiB de ZIM e
-reserva mínima de 512 MiB no volume de dados. Importações também consomem espaço.
-O sistema precisa de pelo menos 800 MiB livres antes da instalação dos pacotes.
+Não há formatação, alteração de DTB, firmware, bootloader, kernel ou driver Wi-Fi.
+Alpine iniciado com raiz em `tmpfs`/`ramfs` (modo diskless) não é suportado para
+esta promessa de persistência: prepare instalação em modo `sys`. Não é feito um
+`lbu commit` ou cache de pacotes implícito.
 
-Ao concluir, ele informa:
+### Instalar sem coleções ou apenas preparar
 
-- Rede: `SABERLOCAL`.
-- Senha WPA2 gerada para esta instalação.
-- Página: **http://10.42.0.1**.
-
-A senha também fica em `/etc/saberlocal/private.json`, legível somente por root.
-Anote-a para informar aos alunos. Reinstalar preserva a senha existente, os livros
-verificados e os documentos importados. Downloads interrompidos podem ser retomados
-executando o instalador novamente. Uma falha de download acontece antes da ativação da rede.
-
-### Opções
-
-```bash
-# Somente verificar os requisitos, quando iw e demais ferramentas já estão instalados:
-sudo bash install.sh --check --interface wlan0
-
-# Instalar portal e rede com guias iniciais, sem baixar coleções:
+```sh
 sudo bash install.sh --no-content
-
-# Preparar configurações sem ativar serviços nem desconectar o rádio:
-sudo bash install.sh --no-activate
-
-# Autorizar explicitamente dados na partição raiz, por exemplo se o SO está no SD:
-sudo bash install.sh --allow-internal --data-dir /srv/saberlocal
+sudo bash install.sh --no-content --no-activate
+sudo bash install.sh --check --interface wlan0
 ```
 
-`--no-activate` ainda instala pacotes e grava exceções para os gerenciadores de rede.
-O terminal informa o comando para ativação posterior; para restaurar as exceções,
-use `sudo saberlocal rollback`. `--check` não instala pacotes nem grava configurações.
+`--no-content` mantém os guias/atividade iniciais e permite importar apostilas.
+`--no-activate` instala pacotes, monta o cartão e grava configurações, mas não
+inicia nem habilita os serviços novos. Para ativar depois: `sudo saberlocal restart`.
+`--check` é leitura: exige as ferramentas de diagnóstico já instaladas e não
+instala pacotes, monta cartão ou grava configurações.
 
-### Personalização
+Se Kiwix não estiver disponível para a combinação de versão/repositórios/arquitetura,
+o instalador informa a falha; não baixa executável glibc incompatível com musl.
+É possível preparar explicitamente só o portal:
 
-Copie `config.example.json` para `config.local.json`. Edite nome da escola,
-mensagem inicial, SSID e, se desejar, senha de 8 a 63 caracteres ASCII:
-
-```bash
-sudo bash install.sh --config config.local.json
+```sh
+sudo bash install.sh --no-kiwix --no-content
 ```
 
-Não publique `config.local.json`: ele pode conter a senha. A senha nunca é enviada
-ao portal. O nome da rede aceita até 32 bytes. Use canais entre 1 e 11 no Brasil.
+Nesse caso, o resumo não declara a biblioteca ZIM pronta.
 
-## Acrescentar materiais dos professores
+## O que inicia depois de ligar
 
-No terminal da TV Box, com o arquivo já copiado para o aparelho:
+```text
+Alpine/OpenRC ou Ubuntu/systemd
+  └─ storage: espera o cartão por UUID, monta e confere
+      ├─ network: espera o rádio, aplica firewall e IP
+      │   ├─ hostapd: Wi-Fi WPA2
+      │   ├─ dns: DHCP e DNS local
+      │   └─ mdns: anuncia saber.local
+      ├─ portal: Waitress + Flask, usuário saberlocal, loopback:8090
+      └─ kiwix: livros ZIM, loopback:8081, quando houver acervo
+          web: nginx, porta 80, depende de rede, portal, hotspot e DHCP
+          display: opcional, sem bloquear os demais
+```
 
-```bash
+O boot e a operação não fazem downloads. OpenRC usa `supervise-daemon`, intervalo
+de 5 s e no máximo 5 respawns durante a vida do supervisor. Systemd tem limite
+de 5 partidas em 300 s e intervalo de 10 s. Esgotado o limite, o componente fica
+parado para diagnóstico; não existe temporizador que o reinicie para sempre.
+`sudo saberlocal restart` reinicia os componentes depois da correção.
+
+Logs persistentes ficam em `/var/log/saberlocal`, com logrotate a cada 15 minutos,
+limite de rotação de 1 MiB por arquivo e três cópias. Não há logs de acesso HTTP,
+analytics, conta de aluno ou histórico de pesquisas. DHCP e diagnósticos podem
+conter identificadores de rede. Logs podem crescer entre duas execuções da rotação.
+
+Não há garantia de quantidade de alunos simultâneos: o teto de 20 estações no
+hostapd não equivale a capacidade validada. Comece com 3–5 clientes na bancada.
+Waitress usa duas threads e conexões limitadas; Kiwix usa duas threads. No systemd
+também há limites de memória. OpenRC supervisiona processos, sem alegar um limite
+de RAM que dependa de cgroups não verificados no Alpine.
+
+## Cartão FAT32 e segurança dos dados
+
+O instalador cria uma única seção identificada no `/etc/fstab`, usando UUID,
+`noauto,nosuid,nodev,noexec`; o serviço de armazenamento faz a montagem com espera
+limitada. `noauto` evita uma espera indefinida do boot por cartão ausente. Uma
+montagem já declarada pelo operador no mesmo UUID/ponto é reutilizada sem duplicação.
+Entradas conflitantes são recusadas, sem apagar configurações alheias.
+
+No FAT32, são aplicadas permissões de leitura para o usuário do portal, escrita
+administrativa e nenhuma execução. A política também é aplicada depois do boot.
+Não se utiliza `chmod -R` em todo o cartão. Livros, PDFs, catálogo SQLite e textos
+extraídos ficam no cartão; o código/ambiente virtual pequenos ficam na raiz.
+Python e bibliotecas são instalados por pacotes da distribuição, sem compilação
+pip ou duas cópias completas de suas dependências.
+
+Cada ZIM é verificado por tamanho antes da transferência. FAT32 aceita no máximo
+**4 GiB menos 1 byte por arquivo**. Arquivos maiores são recusados antes do download:
+escolha coleções menores ou prepare outro cartão ext4 externamente. Nenhum comando
+do instalador oferece formatação. O acervo inicial cabe nesse limite por arquivo.
+
+A instalação e a administração verificam UUID e montagem; os downloads repetem
+a verificação durante a transferência. Sem cartão, não é criado um acervo
+substituto na eMMC. O portal responde com mensagem de indisponibilidade se detectar
+a remoção. Remova o cartão somente com o equipamento desligado corretamente:
+FAT32 e SQLite não eliminam risco de corrupção por corte de energia. O desligamento
+total deve ocorrer após o shutdown do sistema, quando possível.
+
+Para trocar por cartão maior, copie o acervo com o equipamento parado e reinstale
+com `--storage-uuid NOVO-UUID`. Ajuste `max_content_gib` se quiser mais de 20 GiB.
+
+## Acesso no celular
+
+Conecte ao Wi-Fi com a senha exibida ao instalar. Aceite permanecer na rede sem
+internet. Use **http://saber.local** ou **http://10.42.0.1**, sem `:8090`.
+
+DNS local e Avahi/mDNS atendem `saber.local`. O domínio `.local` recebe tratamento
+especial em alguns sistemas; o IP é a alternativa mais confiável. Android/iOS
+podem abrir o portal ao detectar a rede. Não é garantido em todos os aparelhos.
+Não se intercepta HTTPS; VPN, DNS privado e troca automática para dados móveis
+podem exigir ajuste temporário no celular.
+
+A administração por SSH é bloqueada no Wi-Fi dos alunos, preservada na Ethernet.
+O firewall bloqueia encaminhamento entre redes. Regras alheias não são limpas;
+um firewall externo pode exigir permissões adicionais para TCP 80/53, UDP 53/67
+e mDNS UDP 5353 na interface escolhida. O isolamento entre celulares depende do driver.
+
+## Biblioteca e materiais dos professores
+
+As cinco coleções fixadas em `content/packs.json` são matemática, física,
+geografia, história e Wikilivros em português. Ocupam aproximadamente 1,18 GiB.
+Os ZIM são lidos compactados. A pesquisa de apostilas usa SQLite FTS5, sem acentos;
+a pesquisa nas coleções é feita pelo Kiwix, pelo botão da disciplina.
+
+```sh
 sudo saberlocal import /caminho/atividade.pdf \
   --title 'Matemática — 7º ano — Frações' \
   --category 'Matemática' \
-  --source 'Professora Ana — Escola Exemplo' \
-  --license 'Uso autorizado pela autora para esta biblioteca' \
-  --date '2026-11-04'
+  --source 'Autoria real do material' \
+  --license 'Permissão real de uso' \
+  --date '2026-11-12'
 ```
 
-Os campos de exemplo devem ser substituídos pelos dados reais. O texto torna-se
-pesquisável e o arquivo original fica disponível para download. Categorias do
-portal: Matemática, Ciências, História, Geografia, Língua portuguesa, Tecnologia e
-Orientações. Outras categorias continuam visíveis em Todos.
+PDF com texto, TXT e Markdown são aceitos (100 MiB de arquivo, 5 MiB de texto).
+PDF escaneado precisa de OCR prévio. O original pode ser baixado. Os professores
+selecionam materiais adequados às turmas; os acervos públicos não são uma sequência
+didática nem certificam alinhamento à BNCC. Importe somente conteúdo autorizado,
+sem dados pessoais de estudantes.
 
-Limites: 100 MiB por arquivo e 5 MiB de texto extraído. PDF escaneado sem camada
-de texto precisa de OCR prévio. Markdown é mostrado como texto seguro, sem executar
-HTML. A importação é administrativa, pelo terminal; alunos não enviam arquivos
-nem alteram documentos pela página. Importe apenas materiais autorizados e sem
-dados pessoais de estudantes.
+Downloads interrompidos são retomados por Range, ou reiniciados se o servidor
+ignorar Range. SHA-256 é validado antes de publicar o arquivo. Há orçamento padrão
+de 20 GiB e reserva de 512 MiB no cartão. Não se apagam edições antigas automaticamente.
 
-## Como o aluno acessa
+## Administração, atualização e recuperação
 
-1. Conecte ao Wi-Fi SABERLOCAL usando a senha fornecida pela escola.
-2. Se surgir o aviso de rede sem internet, escolha permanecer conectado.
-3. Se o portal não abrir, acesse **http://10.42.0.1**, incluindo `http://`.
-4. Pesquise uma palavra. Os materiais da escola aparecem abaixo; cada cartão
-   oferece a pesquisa de artigos na respectiva coleção.
-
-O portal responde aos pedidos HTTP comuns de detecção de rede. A abertura
-automática varia entre Android, iOS e outros sistemas; não é garantida. HTTPS,
-VPN e DNS privado não podem ser interceptados de forma transparente. Para esses
-casos, use o endereço HTTP e ajuste temporariamente o celular com ajuda da escola.
-
-## Operação e diagnóstico
-
-```bash
+```sh
 sudo saberlocal status
 sudo saberlocal logs
-
-# Completar/verificar as coleções do manifesto e reiniciar Kiwix:
+sudo saberlocal restart
 sudo saberlocal download
-
-# Conferir portal pelo próprio aparelho:
-curl http://10.42.0.1/healthz
-
-# Verificar a rede criada:
-iw dev
-ip -4 address
-```
-
-Serviços: `saberlocal-network`, `saberlocal-hostapd`, `saberlocal-dns`,
-`saberlocal-portal`, `saberlocal-kiwix` e `saberlocal-web`.
-Conteúdo em `/mnt/saberlocal/acervo`; aplicativo em `/opt/saberlocal`;
-configurações em `/etc/saberlocal`. Se o cartão faltar, os serviços que dependem
-dele não iniciam. Os comandos administrativos também verificam a montagem.
-
-O acervo é fixado por URL e SHA-256 em `content/packs.json`: executar download
-verifica as mesmas edições, não escolhe silenciosamente uma versão nova. Para
-atualizar, a equipe deve revisar um novo ZIM no catálogo oficial, obter seu SHA-256,
-alterar o manifesto e reinstalar o projeto. Arquivos de edições antigas não são
-apagados automaticamente. Confira o espaço e remova-os manualmente quando seguro.
-
-### Conflitos e rede
-
-O projeto usa seu próprio nginx, sem substituir a configuração global, e seu
-próprio dnsmasq. As portas 80, 8081 e 8090 precisam estar livres na primeira
-instalação. DNS/DHCP existentes não podem ocupar indiscriminadamente as portas
-necessárias ao rádio. Desative um hotspot anterior nesse rádio antes de instalar.
-A Ethernet deve estar em uma rede diferente de `10.42.0.0/24`.
-
-O instalador cria exceções do NetworkManager/systemd-networkd para o rádio escolhido.
-Não reinicia esses gerenciadores globalmente. Os alunos acessam somente DNS,
-DHCP e HTTP na TV Box; o firewall próprio bloqueia SSH pelo Wi-Fi e encaminhamento
-para outras redes. A administração permanece no console ou na Ethernet.
-Não limpa regras de firewall de outros projetos. Se UFW ou outro firewall estiver
-ativo, o responsável precisa permitir no rádio as portas TCP 80/53 e UDP 53/67;
-as permissões deste projeto não anulam bloqueios impostos por outros firewalls.
-O isolamento entre clientes depende de suporte efetivo do rádio/driver.
-
-Para desfazer as configurações de rede do projeto:
-
-```bash
+sudo saberlocal update --ref SHA_COMPLETO_DE_40_CARACTERES
+sudo saberlocal rollback --app
 sudo saberlocal rollback
 ```
 
-Isso desativa os serviços, remove a tabela `inet saberlocal` pelo serviço de rede
-e restaura os arquivos externos salvos antes da instalação. O acervo, pacotes e
-aplicativo são preservados. Pode ser necessário reconectar o Wi-Fi anterior.
-Os backups ficam em `/var/lib/saberlocal-installer`.
+`status` mostra os componentes reais, montagem/UUID/espaço, número de ZIMs,
+autostart e estado do visor; não imprime a senha. `download` completa/verifica o
+manifesto instalado, habilita e reinicia Kiwix. Não escolhe uma edição nova sem
+alterar o manifesto. `logs` apresenta o final dos arquivos de diagnóstico.
 
-## Arquitetura e limites
+`update --ref` obtém exatamente o commit escolhido do repositório oficial,
+prepara uma nova versão, valida o ambiente Python e executa o instalador sem
+reinstalar pacotes ou baixar coleções. Preserva senha, configuração e conteúdos.
+Internet é necessária só nesse comando. Para atualização com repositório Git local:
 
-```text
-Celular/computador
-      │ Wi-Fi WPA2
-      ▼
-hostapd + dnsmasq ──► 10.42.0.1:80 (nginx próprio)
-                         ├── portal Flask/Gunicorn ──► SQLite + documentos
-                         └── /biblioteca/ ──────────► kiwix-serve + livros ZIM
+```sh
+sudo saberlocal update --ref SHA_COMPLETO --source /caminho/repo-git-local
 ```
 
-Sem Docker, interface gráfica, banco de dados externo ou IA. Gunicorn usa um
-processo e duas threads; Kiwix usa duas threads. Os limites de memória dos serviços
-reduzem a chance de um processo consumir toda a RAM, mas não garantem capacidade
-sob qualquer carga. O limite de 20 estações no hostapd é apenas um teto de
-configuração: teste primeiro com 3–5 alunos, depois aumente e meça no equipamento.
-Não há promessa de atender uma turma inteira simultaneamente com o rádio interno.
+Se a nova versão exigir novos pacotes do SO, execute o instalador normalmente
+com internet. Não há atualização automática em segundo plano. Cópias do código
+ficam em `/opt/saberlocal/releases`, com `current` apontando para a versão ativa.
+Diretórios temporários de atualização são preservados para diagnóstico e podem
+ser removidos pelo responsável quando não forem necessários.
 
-Não há conta de aluno, analytics, histórico de pesquisa ou logs de acesso HTTP.
-Os logs de diagnóstico dos serviços e concessões DHCP ainda podem registrar
-informações de rede. Artigos e livros preservam seus próprios créditos/licenças.
+`rollback --app` volta ao código e configurações da versão anterior registrada,
+mantendo o cartão. `rollback` desativa os serviços e restaura os arquivos anteriores
+à instalação 2.0, sem apagar acervo, pacotes ou código. Alterações externas feitas
+depois da instalação são detectadas e preservadas: nesse caso, a restauração é
+recusada até revisão. A seção de fstab do projeto é removida isoladamente, sem
+apagar entradas acrescentadas por outras pessoas.
 
-## Desenvolvimento e testes
+Não edite os arquivos gerados em `/etc/saberlocal`: para personalizar, crie
+`config.local.json` (ignorado pelo Git) com apenas os campos que deseja alterar e
+execute `sudo bash install.sh --config config.local.json`. O exemplo completo de
+campos está em `config.example.json`; omita UUID, caminhos e senha se quiser preservar os existentes.
+A senha privada fica em `/etc/saberlocal/private.json`, modo 0600. O padrão
+provisório `SaberLocal2026` é substituído por senha individual.
 
-Em outro computador, sem configurar Wi-Fi:
+Processos manuais são migrados automaticamente **somente** se corresponderem aos
+comandos conhecidos (`hostapd /tmp/hostapd.conf`, `dnsmasq --conf-file=/tmp/dnsmasq.conf`
+com interface/SSID correspondentes e `scripts/dev.py` em um checkout do repositório oficial). Não se usa
+`pkill` genérico. Portas ocupadas por serviços externos são recusadas, preservando-os.
+Processos manuais antigos não são ressuscitados pelo rollback.
 
-```bash
+## Visor frontal
+
+```sh
+sudo saberlocal-display probe
+```
+
+Esse comando lista candidatos em `/sys`, `/dev`, módulos e eventual `tx9-show`.
+A presença de um dispositivo ou nome não confirma API de texto. O padrão é
+`display_backend: "none"`: estado **unsupported**, sem bloquear a escola.
+
+Há adaptadores reais para comando com argumentos (sem shell, timeout de 3 s) e
+atributo sysfs de texto documentado. Depois de confirmar a API do driver instalado,
+configure um adaptador em `config.local.json`, por exemplo:
+
+```json
+{
+  "display_backend": "command",
+  "display_command": ["/caminho/absoluto/adaptador-confirmado", "{text}"],
+  "display_width": 4
+}
+```
+
+É um contrato de integração, não um driver incluído nem um comando que se presume
+existir. Depois de reinstalar com essa configuração, o serviço tenta `boot`,
+`SAbE` quando pronto ou `Err` em falha. Com dois caracteres usa `SL`; com largura
+suficiente usa `SaberLocal`. O texto e a disponibilidade efetiva dependem do driver.
+Falhas são registradas; não bloqueiam os demais serviços.
+
+Referência histórica: [rbeninca/tvbox](https://github.com/rbeninca/tvbox). O projeto
+não redistribui seus drivers nem escreve `/dev/mem`, registradores GPIO ou nós de
+dispositivo desconhecidos. A TX9 não foi acessada remotamente nesta implementação.
+
+## Ubuntu/Debian/Armbian e desenvolvimento
+
+Ubuntu/Debian com systemd continuam usando `sudo bash install.sh`; o instalador
+seleciona `apt-get` e gera units próprias. `--storage-uuid` identifica o cartão
+de cada unidade. O ambiente de produção usa Waitress nas duas plataformas.
+
+Em um computador de desenvolvimento, sem montar cartão nem configurar Wi-Fi:
+
+```sh
 python -m pip install -r requirements.txt
 python scripts/dev.py
-```
-
-Abra `http://127.0.0.1:8090`. Essa demonstração mostra os guias iniciais; não
-simula rádio, DNS, DHCP ou coleções que não tenham sido baixadas.
-
-```bash
 python -m unittest discover -s tests -v
-for script in install.sh scripts/kiwix.sh scripts/saberlocal; do bash -n "$script"; done
 ```
 
-Consulte [VALIDACAO.md](VALIDACAO.md) para os testes de bancada pendentes.
-Consulte [NOTICE.md](NOTICE.md) para as atribuições.
+A demonstração fica restrita a `127.0.0.1:8090`; a produção usa nginx na porta 80.
+Os testes incluem backends separados, configuração, proteção do cartão, FAT32,
+busca, importação, downloads e adaptadores do visor. CI também usa contêineres
+descartáveis Alpine x86_64/ARM64 e Ubuntu para conferir pacotes, sintaxe dos
+daemons e WSGI. Docker é ferramenta de CI, **não requisito da TV Box**.
 
-## Publicar este código no GitHub
-
-O projeto pode ser enviado a um novo repositório chamado `saberlocal`. No
-computador com Git e GitHub CLI (`gh`), autenticados na sua conta:
-
-```bash
-gh auth login
-git init -b main
-git add .
-git commit -m "Implementa biblioteca escolar offline SABERLOCAL"
-gh repo create saberlocal --private --source=. --remote=origin --push
-```
-
-Se o Git pedir nome/e-mail, configure sua identidade antes do commit. O exemplo
-cria um repositório privado; use `--public` se quiser disponibilizá-lo publicamente.
-Esses comandos devem ser executados dentro da pasta do projeto, sem arquivos
-com senha. O `.gitignore` exclui configurações locais e dados de desenvolvimento.
+Consulte [VALIDACAO.md](VALIDACAO.md) para resultados e pendências de bancada e
+[NOTICE.md](NOTICE.md) para fontes e licenças.

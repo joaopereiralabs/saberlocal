@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 import urllib.parse
 from pathlib import Path
 
@@ -17,6 +18,14 @@ def create_app(config=None):
     app.config['SABERLOCAL'] = config
     data = Path(config['data_dir'])
 
+    @app.before_request
+    def storage_guard():
+        from scripts.storage import require
+        try:
+            require(config)
+        except (RuntimeError, OSError):
+            return render_template('storage.html'), 503
+
     @app.context_processor
     def context():
         return {'settings': config}
@@ -28,10 +37,12 @@ def create_app(config=None):
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; style-src 'self'; script-src 'self'; "
             "img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'")
-        response.headers['Cache-Control'] = 'no-store'
+        response.headers['Cache-Control'] = 'public, max-age=3600' if request.endpoint == 'static' else 'no-store'
         return response
 
     def packs():
+        if config.get('kiwix_disabled'):
+            return []
         manifest = data / 'installed-packs.json'
         if not manifest.exists():
             return []
@@ -47,7 +58,7 @@ def create_app(config=None):
 
     @app.get('/documento/<doc_id>')
     def document(doc_id):
-        with connect(data) as db:
+        with connect(data, readonly=True) as db:
             item = db.execute('SELECT * FROM documents WHERE id=?', (doc_id,)).fetchone()
         if item is None:
             abort(404)
@@ -55,7 +66,7 @@ def create_app(config=None):
 
     @app.get('/arquivo/<doc_id>')
     def file(doc_id):
-        with connect(data) as db:
+        with connect(data, readonly=True) as db:
             item = db.execute('SELECT filename FROM documents WHERE id=?', (doc_id,)).fetchone()
         if item is None or not item['filename']:
             abort(404)
@@ -96,12 +107,17 @@ def create_app(config=None):
 
     @app.get('/healthz')
     def health():
-        with connect(data) as db:
+        with connect(data, readonly=True) as db:
             db.execute('SELECT COUNT(*) FROM documents').fetchone()
         return {'portal': 'ok', 'packs': len(packs())}
 
     @app.errorhandler(404)
     def captive(_error):
         return redirect('http://10.42.0.1/', code=302)
+
+    @app.errorhandler(sqlite3.DatabaseError)
+    def catalog_error(_error):
+        app.logger.error('Catálogo SQLite indisponível; verifique o cartão e a integridade do banco.')
+        return render_template('catalog-error.html'), 503
 
     return app

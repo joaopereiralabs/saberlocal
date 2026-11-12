@@ -13,3 +13,36 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python -m unittest discover -s tests -v
       - run: for script in install.sh scripts/kiwix.sh scripts/saberlocal; do bash -n "$script"; done
+  linux-integration:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            image: alpine:3.24
+            distro: alpine
+          - runner: ubuntu-24.04-arm
+            image: alpine:3.24
+            distro: alpine
+          - runner: ubuntu-24.04
+            image: ubuntu:24.04
+            distro: ubuntu
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pacotes e integração Linux em ambiente descartável
+        env:
+          TEST_IMAGE: ${{ matrix.image }}
+          TEST_DISTRO: ${{ matrix.distro }}
+        run: |
+          docker run --rm --cap-add NET_ADMIN -e SABERLOCAL_CI=1 -e TEST_DISTRO -v "$PWD:/src" -w /src "$TEST_IMAGE" sh -ec '
+            if [ "$TEST_DISTRO" = alpine ]; then
+              apk add --no-cache python3 py3-flask py3-waitress openrc bash nginx hostapd dnsmasq kiwix-tools avahi nftables iproute2 util-linux findmnt lsblk blkid poppler-utils git logrotate
+            else
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update
+              apt-get install -y --no-install-recommends python3 python3-venv python3-flask python3-waitress systemd bash nginx-core hostapd dnsmasq-base kiwix-tools avahi-daemon nftables iproute2 util-linux poppler-utils git logrotate
+            fi
+            python3 -m unittest discover -s tests -v
+            python3 tests/linux_smoke.py
+          '

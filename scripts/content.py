@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 import uuid
@@ -36,7 +37,7 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def download(pack, target, budget, opener=urllib.request.urlopen):
+def download(pack, target, budget, opener=urllib.request.urlopen, guard=None, max_file_size=None):
     """Retoma por Range; um servidor que ignora Range provoca reinício seguro."""
     url = pack['url']
     if not url.startswith('https://download.kiwix.org/zim/'):
@@ -45,6 +46,8 @@ def download(pack, target, budget, opener=urllib.request.urlopen):
     if not re.fullmatch(r'[a-f0-9]{64}', expected):
         raise ValueError('Checksum SHA-256 inválido.')
     target = Path(target)
+    if guard:
+        guard()
     if target.exists() and sha256(target) == expected:
         return
     if target.exists():
@@ -53,6 +56,8 @@ def download(pack, target, budget, opener=urllib.request.urlopen):
     current = partial.stat().st_size if partial.exists() else 0
     with opener(urllib.request.Request(url, method='HEAD'), timeout=60) as head:
         size = int(head.headers['Content-Length'])
+    if max_file_size is not None and size > max_file_size:
+        raise RuntimeError('Coleção excede o limite FAT32. Use uma coleção menor ou cartão ext4; nenhuma formatação realizada.')
     if size <= 0 or size > budget:
         raise RuntimeError(f'Coleção de {size/GIB:.2f} GiB excede o limite disponível.')
     if current > size:
@@ -72,6 +77,8 @@ def download(pack, target, budget, opener=urllib.request.urlopen):
             with partial.open('ab' if current else 'wb') as out:
                 read = current
                 for chunk in iter(lambda: response.read(1024 * 1024), b''):
+                    if guard:
+                        guard()
                     read += len(chunk)
                     if read > size:
                         raise RuntimeError('Download maior que o tamanho informado.')
@@ -81,11 +88,15 @@ def download(pack, target, budget, opener=urllib.request.urlopen):
     if sha256(partial) != expected:
         partial.unlink()
         raise RuntimeError('SHA-256 incorreto. Parcial removido; execute novamente.')
+    if guard:
+        guard()
     os.replace(partial, target)
     target.chmod(0o644)
 
 
 def install_packs(config):
+    from scripts.storage import require, FAT_LIMIT
+    require(config)
     data = Path(config['data_dir'])
     zims = data / 'zim'
     zims.mkdir(parents=True, exist_ok=True)
@@ -96,9 +107,11 @@ def install_packs(config):
         used = sum(p.stat().st_size for p in zims.glob('*.zim') if p.name != filename)
         budget = int(float(config.get('max_content_gib', 20)) * GIB) - used
         print(f'Baixando/verificando: {pack["title"]}', flush=True)
-        download(pack, zims / filename, budget)
+        download(pack, zims / filename, budget, guard=lambda: require(config),
+                 max_file_size=FAT_LIMIT if config.get('storage_fstype') == 'vfat' else None)
         installed = [p for p in installed if p['id'] != pack['id']]
         installed.append({**pack, 'filename': filename})
+        require(config)
         atomic_json(manifest, installed)
 
 
@@ -108,16 +121,36 @@ def seed(data):
         add_document(data, item)
 
 
-def import_document(data, args):
+def import_document(data, args, config=None):
+    from scripts.storage import require
+    config = config or {}
+    require(config)
     source = Path(args.file).resolve(strict=True)
     if source.suffix.lower() not in ('.txt', '.md', '.pdf'):
         raise ValueError('Formatos aceitos: PDF, TXT e Markdown.')
     if source.stat().st_size > 100 * 1024**2:
         raise ValueError('Limite por arquivo: 100 MiB.')
     if source.suffix.lower() == '.pdf':
-        result = subprocess.run(['pdftotext', '-enc', 'UTF-8', str(source), '-'],
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90, check=True)
-        body = result.stdout.decode('utf-8')
+        # Extrai em arquivo no cartão, com limites no filho; não acumula saída
+        # arbitrariamente grande na RAM de uma TX9 de 1 GB.
+        def limits():
+            import resource
+            resource.setrlimit(resource.RLIMIT_AS, (256 * 1024**2, 256 * 1024**2))
+            resource.setrlimit(resource.RLIMIT_FSIZE, (5 * 1024**2 + 1, 5 * 1024**2 + 1))
+        require(config)
+        temp = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=data, suffix='.text.tmp', delete=False) as stream:
+                temp = Path(stream.name)
+                subprocess.run(['pdftotext', '-enc', 'UTF-8', str(source), '-'],
+                               stdout=stream, stderr=subprocess.PIPE, timeout=90, check=True,
+                               preexec_fn=limits if os.name == 'posix' else None)
+            if temp.stat().st_size > 5 * 1024**2:
+                raise ValueError('Texto extraído excede 5 MiB; divida o documento.')
+            body = temp.read_text(encoding='utf-8')
+        finally:
+            if temp is not None:
+                temp.unlink(missing_ok=True)
     else:
         body = source.read_text(encoding='utf-8')
     if not body.strip():
@@ -126,10 +159,15 @@ def import_document(data, args):
         raise ValueError('Texto extraído excede 5 MiB; divida o documento.')
     doc_id = uuid.uuid4().hex
     folder = Path(data) / 'documents'
+    require(config)
     folder.mkdir(parents=True, exist_ok=True)
     filename = doc_id + source.suffix.lower()
+    if shutil.disk_usage(folder).free < source.stat().st_size + 64 * 1024**2:
+        raise RuntimeError('Sem espaço livre para importar o material com segurança.')
+    require(config)
     shutil.copyfile(source, folder / filename)
     (folder / filename).chmod(0o644)
+    require(config)
     add_document(data, dict(id=doc_id, title=args.title, category=args.category,
                  body=body, source=args.source, license=args.license,
                  reviewed=args.date, filename=filename))
@@ -138,6 +176,7 @@ def import_document(data, args):
 
 def main():
     import fcntl
+    Path('/run/lock').mkdir(parents=True, exist_ok=True)
     lock = open('/run/lock/saberlocal.lock', 'w')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     parser = argparse.ArgumentParser(description='Gerenciar a biblioteca SABERLOCAL')
@@ -152,15 +191,20 @@ def main():
     args = parser.parse_args()
     config = json.loads(Path(args.config).read_text(encoding='utf-8'))
     # Não criar pastas na eMMC caso a montagem do cartão desapareça.
-    mount = config.get('data_mount')
-    if mount and not Path(mount).is_mount():
-        raise RuntimeError(f'Cartão não montado em {mount}.')
+    from scripts.storage import require
+    from scripts.system import service, enable
+    require(config)
     seed(config['data_dir'])
     if args.action == 'download':
+        if config.get('kiwix_disabled'):
+            raise RuntimeError('Kiwix desativado nesta instalação. Execute o instalador sem --no-kiwix antes de baixar coleções.')
+        if not shutil.which('kiwix-serve'):
+            raise RuntimeError('kiwix-serve não está instalado; execute o instalador sem --no-kiwix.')
         install_packs(config)
-        subprocess.run(['systemctl', 'restart', 'saberlocal-kiwix.service'], check=True)
+        enable(config, 'kiwix')
+        service(config, 'kiwix', 'restart')
     elif args.action == 'import':
-        import_document(config['data_dir'], args)
+        import_document(config['data_dir'], args, config)
 
 
 if __name__ == '__main__':
