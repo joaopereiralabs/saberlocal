@@ -104,4 +104,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except subprocess.CalledProcessError as error:
+        print(error.stdout or '', file=sys.stderr)
+        print(error.stderr or '', file=sys.stderr)
+        raise

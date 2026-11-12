@@ -16,11 +16,12 @@ def write(path, text, mode=0o644):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + '.new')
-    with tmp.open('w', encoding='utf-8', newline='\n') as stream:
+    fd = os.open(tmp, os.O_CREAT | os.O_TRUNC | os.O_WRONLY | getattr(os, 'O_NOFOLLOW', 0), mode)
+    os.chmod(tmp, mode)
+    with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as stream:
         stream.write(text.rstrip() + '\n')
         stream.flush()
         os.fsync(stream.fileno())
-    tmp.chmod(mode)
     os.replace(tmp, path)
 
 
@@ -59,3 +60,14 @@ def restore():
             Path(name).unlink(missing_ok=True)
     # Próxima instalação terá uma nova linha de base, preservando estes backups.
     index.rename(STATE / ('restored-' + secrets.token_hex(6) + '.json'))
+
+
+def check_conflicts():
+    index = STATE / 'v2-files.json'
+    if not index.exists():
+        return
+    files = json.loads(index.read_text())
+    conflicts = [name for name, entry in files.items()
+                 if Path(name).exists() and digest(name) != entry['installed']]
+    if conflicts:
+        raise RuntimeError('Arquivos gerados foram alterados externamente: ' + ', '.join(conflicts))

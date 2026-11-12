@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.system import APP, ETC, STATE, SERVICES, run, detect, service, enable, package_commands
 from scripts.configuration import validate, render
-from scripts.files import write, managed_write
+from scripts.files import write, managed_write, check_conflicts
 from scripts.content import seed, install_packs
 from scripts import storage
 
@@ -315,14 +315,16 @@ def main():
     if os.geteuid() != 0:
         raise RuntimeError('Execute com sudo bash install.sh')
     system = detect()
-    if args.rollback:
-        from scripts.admin import rollback
-        rollback(system)
-        return
     import fcntl
     Path('/run/lock').mkdir(parents=True, exist_ok=True)
     lock = open('/run/lock/saberlocal.lock', 'w')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    if args.rollback:
+        from scripts.admin import rollback
+        previous = json.loads((ETC / 'private.json').read_text()) if (ETC / 'private.json').exists() else system
+        rollback(previous)
+        return
+    check_conflicts()
     if system['backend'] == 'openrc' and not Path('/run/openrc').exists():
         raise RuntimeError('OpenRC não está ativo. Prepare/inicie o Alpine antes da instalação.')
     if system['backend'] == 'systemd' and not Path('/run/systemd/system').exists():
@@ -344,6 +346,9 @@ def main():
         if shutil.disk_usage('/').free < 160 * 1024**2:
             raise RuntimeError('Menos de 160 MiB livres na raiz; libere espaço antes de instalar pacotes.')
         ensure_packages(system, args.no_kiwix)
+    if system['backend'] == 'openrc':
+        if run('findmnt', '-n', '-o', 'FSTYPE', '/').stdout.strip() in ('tmpfs', 'ramfs'):
+            raise RuntimeError('Raiz volátil detectada. Prepare Alpine persistente em modo sys.')
     config['interface'] = discover_interface(args.interface or config.get('interface'))
     config['data_mount'] = config.get('data_mount') or '/mnt/saberlocal'
     config['data_dir'] = args.data_dir or config.get('data_dir') or config['data_mount'] + '/acervo'
@@ -409,6 +414,8 @@ def main():
             # Não deixa um AP parcialmente configurado anunciando sucesso.
             for name in reversed(SERVICES):
                 service(config, name, 'stop', check=False)
+            run('ip', 'addr', 'del', '10.42.0.1/24', 'dev', config['interface'], check=False)
+            run('nft', 'delete', 'table', 'inet', 'saberlocal', check=False)
             print('Falha de ativação. Consulte saberlocal logs/status; configurações e acervo preservados.', file=sys.stderr)
             raise
     from scripts.admin import report
