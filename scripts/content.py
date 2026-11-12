@@ -196,6 +196,8 @@ def main():
     require(config)
     seed(config['data_dir'])
     if args.action == 'download':
+        if config.get('kiwix_disabled'):
+            raise RuntimeError('Kiwix desativado nesta instalação. Execute o instalador sem --no-kiwix antes de baixar coleções.')
         if not shutil.which('kiwix-serve'):
             raise RuntimeError('kiwix-serve não está instalado; execute o instalador sem --no-kiwix.')
         install_packs(config)

@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 if [[ ${1:-} == --help ]]; then
-  echo 'Uso: sudo bash install.sh [--interface wlan0] [--data-dir /mnt/saberlocal] [--no-content] [--check]'
+  echo 'Uso: sudo bash install.sh [--storage-uuid UUID] [--interface wlan0] [--no-content] [--no-activate] [--check]'
   exit 0
 fi
 if [[ $EUID -ne 0 ]]; then echo 'Execute com sudo bash install.sh'; exit 1; fi

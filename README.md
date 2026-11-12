@@ -232,9 +232,10 @@ depois da instalação são detectadas e preservadas: nesse caso, a restauraçã
 recusada até revisão. A seção de fstab do projeto é removida isoladamente, sem
 apagar entradas acrescentadas por outras pessoas.
 
-Não edite os arquivos gerados em `/etc/saberlocal`: para personalizar, copie
-`config.example.json` para `config.local.json` (ignorado pelo Git), ajuste os
-campos desejados e execute `sudo bash install.sh --config config.local.json`.
+Não edite os arquivos gerados em `/etc/saberlocal`: para personalizar, crie
+`config.local.json` (ignorado pelo Git) com apenas os campos que deseja alterar e
+execute `sudo bash install.sh --config config.local.json`. O exemplo completo de
+campos está em `config.example.json`; omita UUID, caminhos e senha se quiser preservar os existentes.
 A senha privada fica em `/etc/saberlocal/private.json`, modo 0600. O padrão
 provisório `SaberLocal2026` é substituído por senha individual.
 

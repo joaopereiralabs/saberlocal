@@ -113,7 +113,7 @@ def configure(config):
                       '*/15 * * * * root /usr/sbin/logrotate /etc/logrotate.d/saberlocal')
 
 
-def stage_release():
+def stage_release(config):
     parent = Path('/opt/saberlocal/releases')
     parent.mkdir(parents=True, exist_ok=True)
     revision = run('git', '-C', ROOT, 'rev-parse', 'HEAD', check=False).stdout.strip()
@@ -125,6 +125,11 @@ def stage_release():
     python = dest / '.venv/bin/python'
     run(python, '-c', 'import flask,waitress,sqlite3; '
         'db=sqlite3.connect(":memory:"); db.execute("CREATE VIRTUAL TABLE s USING fts5(text)")')
+    run(python, '-m', 'compileall', '-q', dest / 'app', dest / 'scripts')
+    run(python, '-c', 'import json,sys; from app.server import create_app; '
+        'app=create_app(json.load(sys.stdin)); '
+        'assert app.test_client().get("/healthz").status_code == 200',
+        input=json.dumps({k: v for k, v in config.items() if k != 'password'}), cwd=dest)
     return dest
 
 
@@ -265,7 +270,7 @@ def preflight_ports(config, manual):
 
 def selected_services(config):
     return [n for n in SERVICES if not (n == 'kiwix' and
-            (not shutil.which('kiwix-serve') or not list((Path(config['data_dir']) / 'zim').glob('*.zim'))))
+            (config.get('kiwix_disabled') or not shutil.which('kiwix-serve') or not list((Path(config['data_dir']) / 'zim').glob('*.zim'))))
             and not (n == 'display' and config.get('display_backend', 'none') == 'none')]
 
 
@@ -347,12 +352,19 @@ def main():
             overrides.pop('password', None)
         config.update(overrides)
     config.update(system)
+    if args.no_kiwix:
+        config['kiwix_disabled'] = True
+    elif not args.skip_packages:
+        config['kiwix_disabled'] = False
+    no_kiwix = config.get('kiwix_disabled', False)
+    if no_kiwix and not args.no_content and not args.check:
+        raise ValueError('--no-kiwix exige --no-content.')
     if not config.get('password') or config['password'] == 'SaberLocal2026':
         config['password'] = secrets.token_urlsafe(12)
     if not args.check and not args.skip_packages:
         if shutil.disk_usage('/').free < 160 * 1024**2:
             raise RuntimeError('Menos de 160 MiB livres na raiz; libere espaço antes de instalar pacotes.')
-        ensure_packages(system, args.no_kiwix)
+        ensure_packages(system, no_kiwix)
     if system['backend'] == 'openrc':
         if run('findmnt', '-n', '-o', 'FSTYPE', '/').stdout.strip() in ('tmpfs', 'ramfs'):
             raise RuntimeError('Raiz volátil detectada. Prepare Alpine persistente em modo sys.')
@@ -388,16 +400,16 @@ def main():
     storage.require(config)
     Path(config['data_dir']).mkdir(parents=True, exist_ok=True)
     seed(config['data_dir'])
-    if not args.no_kiwix:
+    if not no_kiwix:
         if not shutil.which('kiwix-serve'):
             raise RuntimeError('kiwix-serve indisponível nos pacotes deste sistema. '
                                'Use --no-kiwix --no-content para instalar somente o portal.')
         run('kiwix-serve', '--version')  # Confirma executável real na arquitetura instalada.
     if not args.no_content:
-        if args.no_kiwix:
+        if no_kiwix:
             raise ValueError('--no-kiwix exige --no-content.')
         install_packs(config)
-    release = stage_release()
+    release = stage_release(config)
     account()
     if manual and not args.no_activate:
         print(f'Migrando {len(manual)} processos manuais reconhecidos para serviços persistentes.', flush=True)

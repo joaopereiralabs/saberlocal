@@ -31,7 +31,7 @@ def detect(text=None, arch=None):
 
 
 ALPINE_PACKAGES = ('python3', 'py3-flask', 'py3-waitress', 'bash', 'git', 'ca-certificates',
-    'openrc', 'hostapd', 'dnsmasq', 'nginx', 'iw', 'iproute2', 'nftables',
+    'openrc', 'busybox-initscripts', 'hostapd', 'dnsmasq', 'nginx', 'iw', 'iproute2', 'nftables',
     'findmnt', 'lsblk', 'blkid', 'util-linux', 'poppler-utils', 'avahi', 'logrotate')
 DEBIAN_PACKAGES = ('python3', 'python3-venv', 'python3-flask', 'python3-waitress', 'bash', 'git',
     'ca-certificates', 'hostapd', 'dnsmasq-base', 'nginx-core', 'iw', 'iproute2',

@@ -113,6 +113,9 @@ def mount(config, timeout=20):
         raise RuntimeError('Formato do cartão mudou; execute novamente o instalador para validar.')
     Path(config['data_mount']).mkdir(parents=True, exist_ok=True)
     run('mount', config['data_mount'])
+    require(config)
+    if config['storage_fstype'] == 'vfat':
+        run('mount', '-o', 'remount,nosuid,nodev,noexec,uid=0,gid=0,fmask=0133,dmask=0022,utf8=1', config['data_mount'])
     return require(config)
 
 

@@ -5,7 +5,7 @@ Testes em um PC não validam o driver Wi-Fi da TX9.
 
 ## Verificações executadas no desenvolvimento
 
-- 38 testes automatizados locais: backends Alpine/OpenRC e Ubuntu/systemd,
+- 41 testes automatizados locais: backends Alpine/OpenRC e Ubuntu/systemd,
   renderização de serviços, proteção por UUID, limites FAT32, adaptadores do visor,
   portal, busca FTS sem acentos, filtro por disciplina,
   importação de texto, download do original, escape de HTML, geração de links
@@ -19,6 +19,21 @@ Testes em um PC não validam o driver Wi-Fi da TX9.
 - A ativação de systemd/hostapd/DHCP não foi executada no Windows de desenvolvimento.
 - A integração Linux no CI é separada dos testes de hardware: instala pacotes
   reais e verifica configurações/WSGI, mas não possui rádio TX9 ou microSD.
+
+### Integração Linux executada
+
+[Execução aprovada no GitHub Actions](https://github.com/joaopereiralabs/saberlocal/actions/runs/43327084071):
+
+- Alpine **3.24.4 aarch64** e x86_64 em contêineres: pacotes reais de Kiwix,
+  nginx, dnsmasq, Avahi, Flask e Waitress; configurações aceitas; HTTP na porta 80
+  e consulta DNS A em interface fictícia; início do WSGI por OpenRC e recuperação
+  após encerrar o processo filho.
+- Ubuntu 24.04 x86_64 em contêiner: mesmas verificações de software/HTTP/DNS,
+  mais `systemd-analyze verify` das units. O boot real por systemd não foi simulado.
+
+Esses testes usam rede isolada e uma interface `dummy`, sem rádio, DHCP de um
+celular ou cartão físico. Alpine 3.24.2 foi informado pela equipe; a imagem de CI
+disponível usa o patch 3.24.4. Não declarar como teste físico da TX9.
 
 ## Evidência informada pela equipe
 

@@ -103,6 +103,14 @@ class PortalTests(unittest.TestCase):
         (self.data / 'installed-packs.json').write_text(json.dumps([{'filename':'missing.zim'}]))
         self.assertEqual(self.client.get('/healthz').json['packs'], 0)
 
+    @patch('scripts.storage.require', side_effect=RuntimeError('cartão ausente'))
+    def test_missing_card_returns_friendly_503_without_opening_catalog(self, guard):
+        with patch('app.server.connect') as connect:
+            response = self.client.get('/healthz')
+            self.assertEqual(response.status_code, 503)
+            self.assertIn('aguardando o cartão', response.get_data(as_text=True))
+            connect.assert_not_called()
+
 
 class FakeResponse(io.BytesIO):
     def __init__(self, data=b'', status=200, headers=None):

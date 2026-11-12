@@ -37,10 +37,12 @@ def create_app(config=None):
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; style-src 'self'; script-src 'self'; "
             "img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'")
-        response.headers['Cache-Control'] = 'no-store'
+        response.headers['Cache-Control'] = 'public, max-age=3600' if request.endpoint == 'static' else 'no-store'
         return response
 
     def packs():
+        if config.get('kiwix_disabled'):
+            return []
         manifest = data / 'installed-packs.json'
         if not manifest.exists():
             return []

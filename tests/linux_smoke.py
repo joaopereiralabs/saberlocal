@@ -1,5 +1,6 @@
 """Integração em contêiner descartável; não simula Wi-Fi, cartão ou cold boot."""
 import json
+import argparse
 import os
 import shutil
 import signal
@@ -14,7 +15,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from scripts.configuration import render
-from scripts.content import seed
+from scripts.content import seed, import_document
+from app.catalog import query
 from scripts.files import write
 from scripts.install import account
 from scripts.runtime import directories
@@ -43,6 +45,26 @@ def main():
         write(name, text, mode)
     write('/etc/saberlocal/config.json', json.dumps(config))
     write('/etc/saberlocal/private.json', json.dumps(config), 0o600)
+    # PDF mínimo válido para exercitar Poppler e os limites do subprocesso.
+    stream = b'BT /F1 12 Tf 20 100 Td (Denominador: texto do PDF) Tj ET'
+    objects = [b'<< /Type /Catalog /Pages 2 0 R >>',
+        b'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+        b'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+        b'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+        b'<< /Length ' + str(len(stream)).encode() + b' >>\nstream\n' + stream + b'\nendstream']
+    pdf, offsets = b'%PDF-1.4\n', [0]
+    for i, obj in enumerate(objects, 1):
+        offsets.append(len(pdf))
+        pdf += str(i).encode() + b' 0 obj\n' + obj + b'\nendobj\n'
+    start = len(pdf)
+    pdf += b'xref\n0 6\n0000000000 65535 f \n'
+    pdf += b''.join(f'{o:010d} 00000 n \n'.encode() for o in offsets[1:])
+    pdf += f'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n{start}\n%%EOF\n'.encode()
+    source = Path(config['data_dir']) / 'fixture.pdf'
+    source.write_bytes(pdf)
+    import_document(config['data_dir'], argparse.Namespace(file=str(source), title='PDF de teste',
+        category='Matemática', source='CI', license='MIT', date='2026-11-12'), config)
+    assert any(d['title'] == 'PDF de teste' for d in query(config['data_dir'], 'denominador'))
     # Interface Ethernet fictícia no namespace do contêiner. Não é um teste de rádio.
     run('ip', 'link', 'add', 'wlan0', 'type', 'dummy')
     run('ip', 'link', 'set', 'wlan0', 'up')
